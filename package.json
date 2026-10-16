@@ -1,0 +1,12 @@
+{
+  "name": "blood-care-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Blood Donation & Donor Matching System",
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "start": "npm start --prefix backend",
+    "test": "npm test --prefix backend",
+    "seed": "npm run seed --prefix backend"
+  }
+}
