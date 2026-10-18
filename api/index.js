@@ -231,26 +231,44 @@ module.exports = async (req, res) => {
 
   // 5. Admin Statistics
   if (pathname === '/api/stats/admin' && method === 'GET') {
+    const stockChartData = DEMO_INVENTORY.map((item) => ({
+      bloodGroup: item.bloodGroup,
+      units: item.unitsAvailable,
+      status: item.unitsAvailable <= item.criticalThreshold ? 'Critical' : item.unitsAvailable <= item.lowStockThreshold ? 'Low' : 'Good'
+    }));
+
+    const lowStockAlerts = DEMO_INVENTORY.filter(
+      (item) => item.unitsAvailable <= item.lowStockThreshold
+    );
+
     return res.status(200).json({
       success: true,
-      overview: {
-        totalUsers: 8,
+      metrics: {
         totalDonors: 5,
+        activeDonors: 4,
+        totalUsers: 8,
         totalRequests: 3,
         pendingRequests: 1,
         approvedRequests: 1,
         fulfilledRequests: 1,
-        inventoryUnits: 72,
-        criticalStockCount: 2
+        rejectedRequests: 0,
+        totalDonations: 2,
+        pendingDonations: 1,
+        approvedDonations: 1,
+        totalUnits: 72
       },
-      bloodGroupDistribution: DEMO_INVENTORY.map((item) => ({
-        bloodGroup: item.bloodGroup,
-        units: item.unitsAvailable,
-        status: item.status
-      })),
-      recentActivity: [
-        { action: 'EMERGENCY_REQUEST', description: 'Critical O- request submitted for Lilavati Hospital', time: '10m ago' },
-        { action: 'DONATION_VERIFIED', description: 'O+ blood unit credited to inventory from voluntary donor', time: '1h ago' }
+      stockChartData,
+      lowStockAlerts,
+      recentRequests: DEMO_REQUESTS,
+      recentDonations: [
+        {
+          _id: 'don-1',
+          donationId: 'DON-2026-001',
+          donor: { name: 'Rahul Verma', phone: '+91 98111 22334' },
+          bloodGroup: 'O+',
+          units: 1,
+          createdAt: new Date().toISOString()
+        }
       ]
     });
   }
@@ -327,7 +345,45 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 12. Notifications
+  // 12. Admin Donations
+  if (pathname.startsWith('/api/admin/donations') && method === 'GET') {
+    return res.status(200).json({
+      success: true,
+      donations: [
+        {
+          _id: 'don-1',
+          donationId: 'DON-2026-001',
+          donor: { name: 'Rahul Verma', email: 'rahul.donor@example.com', phone: '+91 98111 22334' },
+          bloodGroup: 'O+',
+          units: 1,
+          donationDate: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'Pending',
+          hospitalOrCamp: 'Central Blood Bank Mumbai Main Branch'
+        }
+      ],
+      total: 1
+    });
+  }
+
+  // 13. Admin Audit Logs
+  if (pathname.startsWith('/api/admin/audit-logs') && method === 'GET') {
+    return res.status(200).json({
+      success: true,
+      logs: [
+        {
+          _id: 'log-1',
+          action: 'USER_LOGIN',
+          userEmail: 'admin@bloodcare.org',
+          userRole: 'admin',
+          createdAt: new Date().toISOString(),
+          details: { message: 'Administrator login verified' }
+        }
+      ],
+      total: 1
+    });
+  }
+
+  // 14. Notifications
   if (pathname.startsWith('/api/notifications') && method === 'GET') {
     return res.status(200).json({
       success: true,
@@ -343,12 +399,32 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 13. Donor Dashboard Endpoints
+  // 15. Donor Dashboard Endpoints
   if (pathname === '/api/donors/profile/me' && method === 'GET') {
     const user = getUserFromToken(req);
+    const donorData = {
+      _id: '67104b4c73d9370123456792',
+      bloodGroup: user?.donorProfile?.bloodGroup || 'O+',
+      age: user?.donorProfile?.age || 26,
+      gender: user?.donorProfile?.gender || 'Male',
+      weight: user?.donorProfile?.weight || 68,
+      city: user?.donorProfile?.city || 'Mumbai',
+      address: 'Andheri West, Mumbai',
+      isAvailable: user?.donorProfile?.isAvailable !== false,
+      lastDonationDate: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+      eligibilityStatus: 'Eligible',
+      eligibilityNotes: 'Standard 90-day whole blood interval met. Verified fit.',
+      totalDonations: 3,
+      eligibilityCheck: {
+        isEligible: true,
+        message: 'Standard 90-day whole blood interval met. Verified fit for whole blood donation.',
+        daysSinceLastDonation: 120
+      }
+    };
     return res.status(200).json({
       success: true,
-      donor: user?.donorProfile || DEMO_USERS['rahul.donor@example.com'].donorProfile
+      profile: donorData,
+      donor: donorData
     });
   }
 
@@ -362,17 +438,72 @@ module.exports = async (req, res) => {
           bloodGroup: 'O+',
           units: 1,
           donationDate: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'Approved',
-          hospitalOrCamp: 'Red Cross Community Blood Drive, Andheri'
+          status: 'verified',
+          hospitalOrCamp: 'Red Cross Community Blood Drive, Andheri',
+          diseaseOrHealthNotes: 'BP 120/80, Hb 14.2 g/dL. Fit for donation.'
         }
       ]
     });
   }
 
   if (pathname === '/api/donors/matching-requests' && method === 'GET') {
+    const formattedRequests = DEMO_REQUESTS.map((r) => ({
+      id: r._id,
+      requestId: r.requestId,
+      patientName: r.patientName,
+      bloodGroup: r.bloodGroup,
+      unitsRequired: r.unitsRequired,
+      hospitalName: r.hospitalName,
+      hospitalAddress: r.hospitalAddress,
+      city: r.city,
+      urgency: r.urgency,
+      requiredDate: r.requiredDate,
+      contactName: r.contactName,
+      contactPhone: r.contactPhone,
+      status: r.status,
+      isExactMatch: r.bloodGroup === 'O+' || r.bloodGroup === 'O-',
+      isSameCity: true
+    }));
     return res.status(200).json({
       success: true,
-      matches: DEMO_REQUESTS.slice(0, 2)
+      requests: formattedRequests,
+      matches: formattedRequests,
+      count: formattedRequests.length
+    });
+  }
+
+  if (pathname === '/api/donors/availability' && method === 'PATCH') {
+    const { isAvailable } = req.body || {};
+    return res.status(200).json({
+      success: true,
+      message: 'Availability status updated successfully.',
+      isAvailable: Boolean(isAvailable)
+    });
+  }
+
+  if (pathname === '/api/donors/donations' && method === 'POST') {
+    return res.status(201).json({
+      success: true,
+      message: 'Donation entry recorded successfully.'
+    });
+  }
+
+  // 16. Matching Endpoints
+  if (pathname.startsWith('/api/matching/') && method === 'GET') {
+    return res.status(200).json({
+      success: true,
+      donors: [
+        {
+          _id: '67104b4c73d9370123456782',
+          name: 'Rahul Verma',
+          bloodGroup: 'O+',
+          city: 'Mumbai',
+          matchScore: 95,
+          compatibilityTier: 'Universal / Exact Compatible',
+          phone: '+91 98111 22334',
+          isAvailable: true
+        }
+      ]
     });
   }
 

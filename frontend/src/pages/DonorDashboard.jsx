@@ -47,13 +47,13 @@ const DonorDashboard = () => {
       ]);
 
       if (profileRes.data.success) {
-        setProfile(profileRes.data.profile);
+        setProfile(profileRes.data.profile || profileRes.data.donor || {});
       }
       if (donationsRes.data.success) {
-        setDonations(donationsRes.data.donations);
+        setDonations(donationsRes.data.donations || []);
       }
       if (matchesRes.data.success) {
-        setMatchingRequests(matchesRes.data.requests);
+        setMatchingRequests(matchesRes.data.requests || matchesRes.data.matches || []);
       }
     } catch (err) {
       console.error('Failed to load donor dashboard data:', err);
@@ -262,18 +262,18 @@ const DonorDashboard = () => {
               <h3>Matching Blood Requests For Your Type ({profile?.bloodGroup})</h3>
             </div>
             <span className="px-2.5 py-0.5 bg-blood-50 text-blood-700 font-bold text-xs rounded-full">
-              {matchingRequests.length} Open
+              {(matchingRequests || []).length} Open
             </span>
           </div>
 
-          {matchingRequests.length === 0 ? (
+          {(matchingRequests || []).length === 0 ? (
             <div className="text-center py-10 text-slate-500 text-xs">
               <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
               No emergency requests currently pending for your blood group. Thank you for staying ready!
             </div>
           ) : (
             <div className="space-y-3">
-              {matchingRequests.map((req) => (
+              {(matchingRequests || []).map((req) => (
                 <div
                   key={req.id || req.requestId}
                   className="p-4 rounded-2xl border border-slate-200/80 hover:border-blood-200 bg-slate-50/50 hover:bg-white transition-all space-y-2"
