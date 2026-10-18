@@ -3,17 +3,29 @@ const mongoose = require('mongoose');
 let mongoMemoryServer = null;
 
 const connectDB = async () => {
+  // Return existing active connection if already connected (vital for serverless reuse)
+  if (mongoose.connection.readyState >= 1) {
+    return mongoose.connection;
+  }
+
   const targetUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/blood_care_db';
 
   try {
     // Attempt connecting to the configured MongoDB URI (local or Atlas)
     const conn = await mongoose.connect(targetUri, {
-      serverSelectionTimeoutMS: 2500 // Fail fast if local MongoDB service is not running
+      serverSelectionTimeoutMS: 3000 // Fail fast if local MongoDB service is not running
     });
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
     return conn;
   } catch (err) {
     console.warn(`[Database] Could not connect to primary MongoDB at ${targetUri}. Error: ${err.message}`);
+
+    // If running in a serverless environment (e.g., Vercel), do not attempt to start in-memory Mongo child process
+    if (process.env.VERCEL) {
+      console.warn('[Database] In-memory MongoDB is disabled in Vercel serverless environment.');
+      throw err;
+    }
+
     console.log('[Database] Initializing embedded zero-config MongoDB instance for seamless college demonstration...');
 
     try {

@@ -26,7 +26,11 @@ app.use(
     origin: function (origin, callback) {
       // allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.endsWith('.vercel.app') ||
+        process.env.NODE_ENV !== 'production'
+      ) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS'));
@@ -35,11 +39,29 @@ app.use(
   })
 );
 
+const mongoose = require('mongoose');
+
+// Auto-connect to database on incoming requests if in serverless environment
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState >= 1) {
+    return next();
+  }
+  if (process.env.MONGODB_URI || process.env.VERCEL) {
+    try {
+      await connectDB();
+    } catch (err) {
+      console.warn('[Database] Auto-connection warning:', err.message);
+    }
+  }
+  next();
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     system: 'Blood Care Management System API',
+    database: mongoose.connection.readyState >= 1 ? 'connected' : 'disconnected/fallback',
     timestamp: new Date().toISOString()
   });
 });
